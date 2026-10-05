@@ -1,6 +1,11 @@
 # Containerized ML Prediction API using FastAPI, Docker and AWS EC2
 
-A small REST API that predicts the species of an Iris flower (setosa, versicolor, virginica) from four measurements. The model is trained with Scikit-learn, served with FastAPI, packaged in Docker, tested with pytest, checked by GitHub Actions and deployed on AWS EC2.
+A REST API that predicts the species of an Iris flower (setosa, versicolor, virginica) from four measurements. The model is trained with Scikit-learn, served with FastAPI, packaged in Docker, tested with pytest, checked by GitHub Actions and deployed live on AWS EC2.
+
+## Live Demo
+
+- **Swagger UI (try the API):** http://15.206.148.166:8000/docs
+- **Health check:** http://15.206.148.166:8000/health
 
 ## Architecture
 
@@ -45,7 +50,7 @@ iris-ml-api/
 | POST   | `/predict` | Returns the predicted species   |
 | GET    | `/docs`    | Swagger UI documentation        |
 
-**Example request**
+**Example request** (`POST http://15.206.148.166:8000/predict`)
 
 ```json
 {
@@ -64,44 +69,24 @@ iris-ml-api/
 
 Invalid input (missing field, text instead of number, negative value) returns HTTP 422.
 
-## Run Locally
+## How the Model Works
 
-```
-pip install -r requirements.txt
-python train_model.py
-python -m uvicorn app.main:app --reload
-```
+`train_model.py` loads the Iris dataset, splits it into training and test data, trains a RandomForest classifier (about 90% test accuracy) and saves it with joblib. The Docker build runs this script, so the trained model is always inside the container.
 
-Open http://127.0.0.1:8000/docs
+## Testing
 
-## Run Tests
-
-```
-python -m pytest -v
-```
-
-7 tests cover the health endpoint, valid predictions, correct species and invalid inputs.
-
-## Run with Docker
-
-```
-docker build -t iris-ml-api .
-docker run -d -p 8000:8000 --name iris-api iris-ml-api
-```
-
-Open http://localhost:8000/docs
+7 automated pytest tests cover the health endpoint, valid predictions, correct species output and rejection of invalid inputs. They run automatically in GitHub Actions on every push.
 
 ## CI/CD (GitHub Actions)
 
-On every push to `main` the workflow in `.github/workflows/ci.yml` does:
+On every push to `main`, the workflow in `.github/workflows/ci.yml` runs two jobs:
 
 1. **Run tests:** installs dependencies, trains the model and runs pytest.
-2. **Build Docker image:** this job uses `needs: test`, so it runs only if all tests pass. If any test fails, the pipeline stops and the image is never built.
+2. **Build Docker image:** uses `needs: test`, so it runs only if all tests pass. If any test fails, the pipeline stops and the image is never built.
 
-## Deploy on AWS EC2
+## Deployment on AWS EC2
 
-1. Launch an Ubuntu EC2 instance (free tier). In its security group allow port **22** (SSH) and port **8000** (Custom TCP).
-2. Connect to the instance (EC2 Instance Connect) and run:
+The app runs as a Docker container on an Ubuntu EC2 instance (region ap-south-1). The instance's security group allows port **8000** so the API is reachable from a browser. The server installs Docker, clones this repository, builds the image and starts the container using these commands:
 
 ```
 sudo apt update
@@ -112,8 +97,6 @@ cd iris-ml-api
 sudo docker build -t iris-ml-api .
 sudo docker run -d -p 8000:8000 --restart unless-stopped --name iris-api iris-ml-api
 ```
-
-3. Open `http://<EC2_PUBLIC_IP>:8000/docs` in a browser.
 
 ## Future Scope
 
